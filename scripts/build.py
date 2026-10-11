@@ -10,8 +10,9 @@ sys.path.insert(0, os.path.join(AQUI, "scripts"))
 from statue import art  # noqa: E402
 
 # Venus de Milo (Louvre): head and shoulders, 120 columns of marble on black
-ESTATUA = os.path.join(AQUI, "assets", "source", "venus-de-milo.png")
-ART = art(ESTATUA, 120, (0.2, 0.03, 0.8, 0.5))
+COLS = 150
+ESTATUA = os.path.join(AQUI, "assets", "source", "venus-de-milo.jpg")
+ART = art(ESTATUA, COLS, (0.22, 0.0, 0.78, 0.46))
 
 PASTEL = {"rosa": "#e894a0", "azul": "#a6c7ee", "pessego": "#f2b58f", "verde": "#bad6a1",
           "lilas": "#c9a6eb", "amarelo": "#f0d499"}
@@ -26,13 +27,15 @@ FETCH = [
     ("term", "kitty", "lilas"),
     ("font", "Adwaita Mono", "amarelo"),
     ("theme", "terminal glass", "rosa"),
-    ("muse", "Aphrodite . Venus de Milo", "azul"),
+    ("goddess", "Eris . strife & discord", "amarelo"),
+    ("apple", "golden . to the fairest", "pessego"),
+    ("art", "Aphrodite . Venus de Milo", "azul"),
     ("now", "ascii-walls", "verde"),
 ]
 
-FS = 7.4
+FS = 6.0
 LH, CW = FS * 1.17, FS * 0.6           # line height, char width (monospace = 0.6 em)
-W = int(52 + 120 * CW + 24 + 22 + 330 + 52)
+W = int(52 + COLS * CW + 24 + 22 + 330 + 52)
 H = int(96 + len(ART) * LH + 26 + 60)
 
 
@@ -100,7 +103,7 @@ def svg():
 
     # left frame: the goddess
     ax, ay = 52, 96
-    aw = 120 * CW + 24
+    aw = COLS * CW + 24
     ah = len(ART) * LH + 26
     o.append(quadro(ax, ay, aw, ah, "venus-de-milo.txt", PASTEL["lilas"]))
     o.append(f'<g font-size="{FS}">')
@@ -115,7 +118,7 @@ def svg():
     o.append(f'<text x="{rx}" y="{y + 4}" font-size="13" xml:space="preserve">'
              f'<tspan fill="{PASTEL["rosa"]}">sapyst</tspan><tspan fill="{APAGADO}">@</tspan>'
              f'<tspan fill="{PASTEL["azul"]}">aero</tspan><tspan fill="{APAGADO}"> ~ </tspan>'
-             f'<tspan fill="{PASTEL["verde"]}">❯</tspan><tspan fill="{TEXTO}"> fetch --goddess</tspan></text>')
+             f'<tspan fill="{PASTEL["verde"]}">❯</tspan><tspan fill="{TEXTO}"> fetch --goddess </tspan><tspan fill="{PASTEL["amarelo"]}">eris</tspan></text>')
     fy = y + 26
     fh = len(FETCH) * 21 + 22
     o.append(quadro(rx, fy, rw, fh, "system", PASTEL["azul"]))
@@ -131,9 +134,9 @@ def svg():
         o.append(f'<rect x="{rx + 16 + i * ((rw - 32) / 6)}" y="{py + 18}" width="{(rw - 32) / 6 - 8}" height="18" fill="{c}"/>')
     # oracle line + prompt with blinking cursor
     qy = py + 50 + 18
-    o.append(quadro(rx, qy, rw, 58, "oracle", PASTEL["amarelo"]))
-    o.append(f'<text x="{rx + 16}" y="{qy + 25}" font-size="12.5" fill="{TEXTO}">know thyself.</text>')
-    o.append(f'<text x="{rx + 16}" y="{qy + 44}" font-size="11.5" fill="{APAGADO}">— temple of Apollo, Delphi</text>')
+    o.append(quadro(rx, qy, rw, 58, "golden apple", PASTEL["amarelo"]))
+    o.append(f'<text x="{rx + 16}" y="{qy + 25}" font-size="13" fill="{PASTEL["amarelo"]}">τῇ καλλίστῃ</text>')
+    o.append(f'<text x="{rx + 16}" y="{qy + 44}" font-size="11.5" fill="{APAGADO}">to the fairest — Eris, wedding of Peleus</text>')
     cy = ay + ah
     o.append(f'<text x="{rx}" y="{cy}" font-size="13" xml:space="preserve"><tspan fill="{PASTEL["verde"]}">❯</tspan>'
              f'<tspan class="cursor" fill="{TEXTO}"> █</tspan></text>')

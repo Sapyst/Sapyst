@@ -6,6 +6,7 @@
 Usage: python3 statue.py photo.png [cols] [x0,y0,x1,y1]  -> prints the ASCII
 As a module: art(path, cols, crop) -> list of rows, each a list of (char, gray 0..1)."""
 import colorsys
+import math
 import sys
 
 import gi
@@ -13,11 +14,15 @@ import gi
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import GdkPixbuf  # noqa: E402
 
+FINO = 0.5
 RAMP = " .,:;-~=+*o%#@"
 
 
-def load(path):
+def load(path, largura=1000):
     p = GdkPixbuf.Pixbuf.new_from_file(path)
+    if p.get_width() > largura:      # plenty for 120-160 columns, and keeps pure Python fast
+        p = p.scale_simple(largura, round(p.get_height() * largura / p.get_width()),
+                           GdkPixbuf.InterpType.HYPER)
     w, h, n, st = p.get_width(), p.get_height(), p.get_n_channels(), p.get_rowstride()
     d = p.get_pixels()
     lum, sat = [], []
@@ -73,17 +78,26 @@ def blur(w, h, a, r):
     return o
 
 
-def art(path, cols=76, box=(0, 0, 1, 1), gamma=1.0, amount=2.2):
+def art(path, cols=76, box=(0, 0, 1, 1), gamma=1.0, amount=1.3):
     """box = (x0, y0, x1, y1) as fractions of the photo: the part that becomes ASCII."""
     w, h, lum, sat = load(path)
     m = mask_of(w, h, lum, sat)
-    # local contrast (large radius, like HDR) + fine sharpening (small radius): eyes, nose, hair locks
-    grande, fino = blur(w, h, lum, 9), blur(w, h, lum, 2)
-    sharp = [min(1, max(0, lum[i] + amount * (lum[i] - grande[i]) + 0.9 * (lum[i] - fino[i])))
-             for i in range(w * h)]
-    vals = sorted(sharp[i] for i in range(w * h) if m[i])
-    lo, hi = vals[int(len(vals) * 0.04)], vals[int(len(vals) * 0.985)]
+    # adaptive local contrast (like CLAHE): each point is compared with its own neighbourhood
+    # (mean and deviation over a large radius), so the face is not darkened by the bright shoulders
+    r = max(4, w // 16)
+    media = blur(w, h, lum, r)
+    quad = blur(w, h, [v * v for v in lum], r)
+    fino = blur(w, h, lum, max(1, w // 200))
     bx0, by0, bx1, by1 = int(box[0] * w), int(box[1] * h), int(box[2] * w), int(box[3] * h)
+    dentro = [lum[y * w + x] for y in range(by0, by1, 3) for x in range(bx0, bx1, 3) if m[y * w + x]]
+    dentro.sort()
+    lo, hi = dentro[int(len(dentro) * 0.03)], dentro[int(len(dentro) * 0.99)]
+    sharp = []
+    for i in range(w * h):
+        dp = math.sqrt(max(1e-5, quad[i] - media[i] * media[i]))
+        local = 0.5 + 0.5 * math.tanh(amount * (lum[i] - media[i]) / (dp + 0.03))
+        glob = min(1, max(0, (lum[i] - lo) / (hi - lo)))
+        sharp.append(min(1, max(0, 0.45 * glob + 0.55 * local + FINO * (lum[i] - fino[i]))))
     cw = (bx1 - bx0) / cols
     ch = cw * 2.05                      # monospace cells are ~2x taller than wide
     rows = int((by1 - by0) / ch)
@@ -100,9 +114,7 @@ def art(path, cols=76, box=(0, 0, 1, 1), gamma=1.0, amount=2.2):
                         cov += 1; tot += sharp[i]
             if n == 0 or cov / n < 0.35:
                 linha.append((" ", 0.0)); continue
-            v = (tot / cov - lo) / max(1e-6, hi - lo)
-            v = min(1, max(0, v)) ** gamma
-            v = v * v * (3 - 2 * v)                     # S-curve: deeper shadows, brighter marble
+            v = (tot / cov) ** gamma
             k = 1 + int(v * (len(RAMP) - 2))
             linha.append((RAMP[k], 0.07 + 0.93 * v))
         out.append(linha)
