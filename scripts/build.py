@@ -3,9 +3,15 @@
 Edit the FETCH list or assets/goddess.txt and run:  python3 scripts/build.py"""
 import html
 import os
+import sys
 
 AQUI = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ART = open(os.path.join(AQUI, "assets", "goddess.txt")).read().rstrip("\n").split("\n")
+sys.path.insert(0, os.path.join(AQUI, "scripts"))
+from statue import art  # noqa: E402
+
+# Venus de Milo (Louvre): head and shoulders, 120 columns of marble on black
+ESTATUA = os.path.join(AQUI, "assets", "source", "venus-de-milo.png")
+ART = art(ESTATUA, 120, (0.2, 0.03, 0.8, 0.5))
 
 PASTEL = {"rosa": "#e894a0", "azul": "#a6c7ee", "pessego": "#f2b58f", "verde": "#bad6a1",
           "lilas": "#c9a6eb", "amarelo": "#f0d499"}
@@ -20,40 +26,36 @@ FETCH = [
     ("term", "kitty", "lilas"),
     ("font", "Adwaita Mono", "amarelo"),
     ("theme", "terminal glass", "rosa"),
-    ("muses", "Athena . Artemis . Selene", "azul"),
+    ("muse", "Aphrodite . Venus de Milo", "azul"),
     ("now", "ascii-walls", "verde"),
 ]
 
-W, H = 960, 560
-FS, LH, CW = 11.5, 15.2, 6.92          # art font size, line height, char width (approx.)
+FS = 7.4
+LH, CW = FS * 1.17, FS * 0.6           # line height, char width (monospace = 0.6 em)
+W = int(52 + 120 * CW + 24 + 22 + 330 + 52)
+H = int(96 + len(ART) * LH + 26 + 60)
 
 
 def esc(s):
     return html.escape(s, quote=False)
 
 
-def cor_arte(ch):
-    if ch in "o*,":
-        return PASTEL["verde"]                 # laurel
-    if ch == "@":
-        return PASTEL["amarelo"]               # gold pins
-    if ch == "~":
-        return "#b9b2c9"                       # hair
-    if ch == "(" or ch == "=" or ch == "<":
-        return PASTEL["pessego"]
-    return TEXTO
+def cinza(g):
+    v = round(g * 12) / 12                     # 13 marble tones: fewer runs, smaller file
+    c = int(18 + v * 232)
+    return f"#{c:02x}{c:02x}{max(0, c - 6):02x}"
 
 
-def linha_arte(s, x, y):
-    """One art line as tspans grouped by color (keeps xml:space so columns line up)."""
+def linha_arte(linha, x, y):
+    """One art line: tspans grouped by tone; xml:space keeps the columns aligned."""
     partes, atual, buf = [], None, ""
-    for ch in s:
-        c = cor_arte(ch) if ch != " " else atual
+    for ch, g in linha:
+        c = cinza(g) if ch != " " else atual
         if c != atual and buf:
             partes.append((atual, buf)); buf = ""
         atual = c; buf += ch
-    if buf:
-        partes.append((atual, buf))
+    if buf.strip():
+        partes.append((atual, buf.rstrip()))
     spans = "".join(f'<tspan fill="{c or TEXTO}">{esc(t)}</tspan>' for c, t in partes)
     return f'<text x="{x}" y="{y:.1f}" xml:space="preserve">{spans}</text>'
 
@@ -85,18 +87,10 @@ def svg():
              '@keyframes flutua{from{transform:translate(0,0)}to{transform:translate(60px,-30px)}}'
              '@media (prefers-reduced-motion: reduce){.cursor,.flutua,.flutua2{animation:none}}'
              '</style>')
-    # backdrop: dark wallpaper with soft pastel lights, heavily blurred
+    # OLED: pure black; the "glass" is a black window with the light 1px outline
     o.append('<g clip-path="url(#cartao)">')
-    o.append('<rect width="100%" height="100%" fill="#121318"/>')
-    o.append('<g filter="url(#desfoque)" opacity="0.75">'
-             f'<circle class="flutua" cx="170" cy="140" r="150" fill="{PASTEL["lilas"]}"/>'
-             f'<circle class="flutua2" cx="820" cy="110" r="130" fill="{PASTEL["azul"]}"/>'
-             f'<circle class="flutua" cx="640" cy="470" r="150" fill="{PASTEL["pessego"]}" opacity="0.7"/>'
-             f'<circle class="flutua2" cx="260" cy="500" r="120" fill="{PASTEL["rosa"]}" opacity="0.7"/>'
-             '</g>')
-    # glass window (theme color at 62%, 1px light outline)
-    o.append(f'<rect x="28" y="28" width="{W - 56}" height="{H - 56}" rx="14" fill="rgba(30,30,34,0.62)" '
-             f'stroke="{LINHA}" filter="url(#sombra)"/>')
+    o.append('<rect width="100%" height="100%" fill="#000"/>')
+    o.append(f'<rect x="28" y="28" width="{W - 56}" height="{H - 56}" rx="14" fill="#000" stroke="{LINHA}"/>')
     # title bar: the system window buttons + title
     o.append(f'<g font-size="13" fill="{TEXTO}">'
              '<text x="48" y="56">✖</text><text x="68" y="56">▲</text>'
@@ -106,12 +100,12 @@ def svg():
 
     # left frame: the goddess
     ax, ay = 52, 96
-    aw = 54 * CW + 24
+    aw = 120 * CW + 24
     ah = len(ART) * LH + 26
-    o.append(quadro(ax, ay, aw, ah, "goddess.txt", PASTEL["lilas"]))
+    o.append(quadro(ax, ay, aw, ah, "venus-de-milo.txt", PASTEL["lilas"]))
     o.append(f'<g font-size="{FS}">')
     for i, l in enumerate(ART):
-        o.append(linha_arte(l, ax + 12, ay + 24 + i * LH))
+        o.append(linha_arte(l, ax + 12, ay + 20 + i * LH))
     o.append('</g>')
 
     # right column
